@@ -37,7 +37,7 @@ export const ColumnProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const fetchColumns = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/columns', {
+      const response = await axios.get('https://data-entry-sfo.onrender.com/api/columns', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setColumns(response.data);
