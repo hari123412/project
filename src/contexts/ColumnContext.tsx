@@ -51,7 +51,7 @@ export const ColumnProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const addColumn = async (column: Omit<ColumnDefinition, 'id'>) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:5000/api/columns', column, {
+      const response = await axios.post('https://data-entry-sfo.onrender.com/api/columns', column, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setColumns([...columns, response.data]);
@@ -64,7 +64,7 @@ export const ColumnProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const updateColumn = async (id: string, updates: Partial<Omit<ColumnDefinition, 'id'>>) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put(`http://localhost:5000/api/columns/${id}`, updates, {
+      const response = await axios.put(`https://data-entry-sfo.onrender.com/api/columns/${id}`, updates, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setColumns(columns.map(col => col.id === id ? response.data : col));
@@ -77,7 +77,7 @@ export const ColumnProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const removeColumn = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/columns/${id}`, {
+      await axios.delete(`https://data-entry-sfo.onrender.com/api/columns/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setColumns(columns.filter(col => col.id !== id));
