@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       setError(null);
       
-      const response = await axios.post('http://localhost:5000/api/register', {
+      const response = await axios.post('https://data-entry-sfo.onrender.com/api/register', {
         username,
         email,
         password
