@@ -26,7 +26,7 @@ if (!fs.existsSync(exportsDir)) {
 
 // MongoDB connection
 const connectDB = async () => {
-  const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/datacollection';
+  const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://admin:admin@project.8ihjegu.mongodb.net/';
 
   try {
     await mongoose.connect(MONGO_URI, {
