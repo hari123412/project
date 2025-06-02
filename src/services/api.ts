@@ -55,6 +55,32 @@ export const dataService = {
     }
   },
 
+  exportDateRange: async (startDate: string, endDate: string) => {
+    try {
+      const response = await api.get(`/export-range/${startDate}/${endDate}`, {
+        responseType: 'blob',
+        timeout: 30000
+      });
+      
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `data_${startDate}_to_${endDate}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      return true;
+    } catch (error) {
+      console.error('Export error:', error);
+      throw new Error('Failed to export data');
+    }
+  },
+
   getDailyStats: async () => {
     const response = await api.get('/reports/daily');
     return response.data;
