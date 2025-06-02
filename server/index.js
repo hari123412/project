@@ -235,82 +235,90 @@ app.get('/api/export-range/:startDate/:endDate', authenticateToken, async (req, 
     const { startDate, endDate } = req.params;
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
 
-    // Get columns for the user
+    const end = new Date(endDate);
+    end.setDate(end.getDate() + 1); // include full endDate day
+    end.setHours(0, 0, 0, 0);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
+    }
+
     const columns = await Column.find({ userId: req.user.id }).sort('order');
-    
-    // Get entries for the date range
     const entries = await DataEntry.find({
       userId: req.user.id,
-      createdAt: { $gte: start, $lte: end }
+      createdAt: { $gte: start, $lt: end }
     }).sort('createdAt');
 
     const workbook = new ExcelJS.Workbook();
-    
-    // Group entries by date
+    const worksheet = workbook.addWorksheet('Data Entries');
+
+    // Group by date
     const entriesByDate = entries.reduce((acc, entry) => {
-      const date = format(new Date(entry.createdAt), 'yyyy-MM-dd');
-      if (!acc[date]) {
-        acc[date] = [];
-      }
-      acc[date].push(entry);
+      const dateStr = format(new Date(entry.createdAt), 'yyyy-MM-dd');
+      if (!acc[dateStr]) acc[dateStr] = [];
+      acc[dateStr].push(entry);
       return acc;
     }, {});
 
-    // Create a worksheet for each date
-    Object.entries(entriesByDate).forEach(([date, dateEntries]) => {
-      const worksheet = workbook.addWorksheet(`Data - ${date}`);
+    let currentRow = 1;
 
-      // Add headers
-      const headers = columns.map(col => col.name);
-      worksheet.addRow(headers);
+    for (const [date, dateEntries] of Object.entries(entriesByDate)) {
+      // Insert date heading
+      worksheet.getCell(`A${currentRow}`).value = `Date: ${date}`;
+      worksheet.getCell(`A${currentRow}`).font = { bold: true };
+      currentRow++;
 
-      // Add data rows
+      // Insert column headers
+      columns.forEach((col, index) => {
+        const cell = worksheet.getCell(currentRow, index + 1);
+        cell.value = col.name;
+        cell.font = { bold: true };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE0E0E0' }
+        };
+      });
+      currentRow++;
+
+      // Insert rows
       dateEntries.forEach(entry => {
-        const rowData = columns.map(col => {
+        columns.forEach((col, colIndex) => {
           const value = entry.data.get(col.name);
+          const cell = worksheet.getCell(currentRow, colIndex + 1);
           if (col.type === 'checkbox') {
-            return value ? 'Yes' : 'No';
-          }
-          return value || '';
-        });
-        worksheet.addRow(rowData);
-      });
-
-      // Style headers
-      const headerRow = worksheet.getRow(1);
-      headerRow.font = { bold: true };
-      headerRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFE0E0E0' }
-      };
-
-      // Auto-fit columns
-      worksheet.columns.forEach(column => {
-        let maxLength = 0;
-        column.eachCell({ includeEmpty: true }, cell => {
-          const columnLength = cell.value ? cell.value.toString().length : 10;
-          if (columnLength > maxLength) {
-            maxLength = columnLength;
+            cell.value = value ? 'Yes' : 'No';
+          } else {
+            cell.value = value || '';
           }
         });
-        column.width = maxLength < 10 ? 10 : maxLength + 2;
+        currentRow++;
       });
+
+      currentRow++; // Blank row between dates
+    }
+
+    // Auto-fit columns
+    worksheet.columns.forEach(col => {
+      let maxLength = 10;
+      col.eachCell({ includeEmpty: true }, cell => {
+        const len = cell.value ? cell.value.toString().length : 0;
+        if (len > maxLength) maxLength = len;
+      });
+      col.width = maxLength + 2;
     });
 
-    // Generate Excel file
-    const filename = `data_${format(start, 'yyyy-MM-dd')}_to_${format(end, 'yyyy-MM-dd')}.xlsx`;
+    // Save and download
+    const filename = `data_${format(start, 'yyyy-MM-dd')}_to_${format(new Date(endDate), 'yyyy-MM-dd')}.xlsx`;
     const filepath = join(exportsDir, filename);
     await workbook.xlsx.writeFile(filepath);
 
-    // Record export history
+    // Save export history
     const exportRecord = new ExportHistory({
       userId: req.user.id,
       date: start,
-      endDate: end,
+      endDate: new Date(endDate),
       filename,
       entriesCount: entries.length
     });
@@ -328,6 +336,7 @@ app.get('/api/export-range/:startDate/:endDate', authenticateToken, async (req, 
     res.status(400).json({ error: err.message });
   }
 });
+
 
 app.get('/api/export/:date', authenticateToken, async (req, res) => {
   try {
