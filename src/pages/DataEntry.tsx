@@ -20,7 +20,9 @@ const DataEntry: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [exportDate, setExportDate] = useState(new Date().toISOString().split('T')[0]);
+  const [exportType, setExportType] = useState<'single' | 'range'>('single');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     fetchTodayEntries();
@@ -89,8 +91,30 @@ const DataEntry: React.FC = () => {
   
   const handleExport = async () => {
     try {
+      if (!startDate) {
+        setError('Please select a start date');
+        return;
+      }
+      
+      if (exportType === 'range' && !endDate) {
+        setError('Please select an end date');
+        return;
+      }
+
+      if (exportType === 'range' && new Date(endDate) < new Date(startDate)) {
+        setError('End date must be after start date');
+        return;
+      }
+
       setIsLoading(true);
-      await dataService.exportDaily(exportDate);
+      setError('');
+      
+      if (exportType === 'range') {
+        await dataService.exportDateRange(startDate, endDate);
+      } else {
+        await dataService.exportDaily(startDate);
+      }
+      
       setSuccess('Export completed successfully');
     } catch (err) {
       setError('Failed to export data');
@@ -216,7 +240,7 @@ const DataEntry: React.FC = () => {
                   {columns.map(column => renderFormField(column))}
                 </div>
                 
-                <div className="mt-6 flex justify-end space-x-3">
+                <div className="mt-6 flex flex-col space-y-4">
                   <Button
                     onClick={handleSubmit}
                     variant="primary"
@@ -226,21 +250,61 @@ const DataEntry: React.FC = () => {
                     Save Entry
                   </Button>
                   
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      type="date"
-                      value={exportDate}
-                      onChange={(e) => setExportDate(e.target.value)}
-                    />
-                    <Button
-                      onClick={handleExport}
-                      variant="outline"
-                      icon={<FileDown className="h-4 w-4" />}
-                      isLoading={isLoading}
-                    >
-                      Export Data
-                    </Button>
-                  </div>
+                  <Card title="Export Options" className="mt-4">
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-4">
+                        <label className="inline-flex items-center">
+                          <input
+                            type="radio"
+                            className="form-radio"
+                            name="exportType"
+                            value="single"
+                            checked={exportType === 'single'}
+                            onChange={(e) => setExportType(e.target.value as 'single')}
+                          />
+                          <span className="ml-2">Single Date</span>
+                        </label>
+                        <label className="inline-flex items-center">
+                          <input
+                            type="radio"
+                            className="form-radio"
+                            name="exportType"
+                            value="range"
+                            checked={exportType === 'range'}
+                            onChange={(e) => setExportType(e.target.value as 'range')}
+                          />
+                          <span className="ml-2">Date Range</span>
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          type="date"
+                          label={exportType === 'range' ? "Start Date" : "Date"}
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                        />
+                        {exportType === 'range' && (
+                          <Input
+                            type="date"
+                            label="End Date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                          />
+                        )}
+                      </div>
+
+                      <Button
+                        onClick={handleExport}
+                        variant="outline"
+                        icon={<FileDown className="h-4 w-4" />}
+                        isLoading={isLoading}
+                        fullWidth
+                      >
+                        Export Data
+                      </Button>
+                    </div>
+                  </Card>
                 </div>
               </div>
             )}
@@ -256,7 +320,7 @@ const DataEntry: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {entries.map((entry, index) => (
+                {entries.map((entry) => (
                   <div key={entry._id} className="p-3 bg-gray-50 rounded-md">
                     {columns.map(column => (
                       <div key={column.id} className="mb-1">
